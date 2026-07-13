@@ -1,0 +1,24 @@
+{
+	"schemaVersion": 1,
+	"id": "simple-server-backups",
+	"version": "${version}",
+	"name": "Simple Server Backups",
+	"description": "Gestiona copias de seguridad completas del mundo (todas las dimensiones) para servidores dedicados, mediante comandos y sin depender de otros mods.",
+	"authors": [
+		"pal1"
+	],
+	"license": "CC0-1.0",
+	"icon": "assets/simple-server-backups/icon.png",
+	"environment": "server",
+	"entrypoints": {
+		"main": [
+			"com.pal1.simpleserverbackups.SimpleServerBackups"
+		]
+	},
+	"depends": {
+		"fabricloader": ">=0.19.2",
+		"minecraft": "~26.1.2",
+		"java": ">=25",
+		"fabric-api": "*"
+	}
+}
