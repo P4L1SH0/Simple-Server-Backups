@@ -7,7 +7,7 @@
 	"authors": [
 		"pal1"
 	],
-	"license": "CC0-1.0",
+	"license": "MIT",
 	"icon": "assets/simple-server-backups/icon.png",
 	"environment": "server",
 	"entrypoints": {
