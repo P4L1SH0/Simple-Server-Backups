@@ -17,6 +17,7 @@ Simple Server Backups is a lightweight and easy-to-use Minecraft server backup m
   * Set the maximum number of backups to keep.
   * Change the mod language.
   * Customize additional backup settings.
+  * Permissions by user.
 
 ## Commands
 
