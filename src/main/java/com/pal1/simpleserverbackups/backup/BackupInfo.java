@@ -1,10 +1,8 @@
 package com.pal1.simpleserverbackups.backup;
 
-import java.nio.file.Path;
-
 /**
- * Informacion resumida de un backup ya existente en disco,
- * usada para /backup list y /backup info.
+ * Summarized information about a backup that already exists on disk,
+ * used to display it in /backup list and /backup info.
  */
 public record BackupInfo(String name, long sizeInBytes, long lastModifiedMillis, int fileCount) {
 }

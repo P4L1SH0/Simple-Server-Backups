@@ -16,8 +16,8 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Sugiere (autocompleta con Tab) los nombres de los backups que ya existen
- * en disco. Se usa en los argumentos "nombre" de /backup delete y /backup load.
+ * Suggests (Tab-completes) the names of backups that already exist on
+ * disk. Used in the "name" arguments of /backup delete and /backup load.
  */
 public class BackupNameSuggestionProvider implements SuggestionProvider<CommandSourceStack> {
 
@@ -33,7 +33,7 @@ public class BackupNameSuggestionProvider implements SuggestionProvider<CommandS
                 builder.suggest(backup.name());
             }
         } catch (Exception e) {
-            SimpleServerBackups.LOGGER.error("Error al generar sugerencias de nombres de backup", e);
+            SimpleServerBackups.LOGGER.error("Error generating backup name suggestions", e);
         }
 
         return builder.buildFuture();

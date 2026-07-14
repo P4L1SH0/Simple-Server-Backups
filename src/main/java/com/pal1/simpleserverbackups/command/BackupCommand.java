@@ -17,6 +17,7 @@ import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.permissions.Permissions;
 
 import java.time.Instant;
@@ -28,9 +29,9 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Registra el comando /backup y sus subcomandos:
- * /backup, /backup create <nombre>, /backup list, /backup info <nombre>,
- * /backup delete <nombre>, /backup load <nombre>, /backup reload, /backup help.
+ * Registers the /backup command and its subcommands:
+ * /backup, /backup create <name>, /backup list, /backup info <name>,
+ * /backup delete <name>, /backup load <name>, /backup reload, /backup help.
  */
 public class BackupCommand {
 
@@ -43,15 +44,15 @@ public class BackupCommand {
     private static final DateTimeFormatter DISPLAY_DATE_FULL_FORMAT =
             DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
 
-    // Mapa "comando -> clave de traduccion de su descripcion", para /backup help.
+    // Map "command -> translation key of its description", used by /backup help.
     private static final Map<String, String> COMMAND_HELP_KEYS = new LinkedHashMap<>();
     static {
         COMMAND_HELP_KEYS.put("/backup", "help.backup");
-        COMMAND_HELP_KEYS.put("/backup create <nombre>", "help.create");
+        COMMAND_HELP_KEYS.put("/backup create <name>", "help.create");
         COMMAND_HELP_KEYS.put("/backup list", "help.list");
-        COMMAND_HELP_KEYS.put("/backup info <nombre>", "help.info");
-        COMMAND_HELP_KEYS.put("/backup delete <nombre>", "help.delete");
-        COMMAND_HELP_KEYS.put("/backup load <nombre>", "help.load");
+        COMMAND_HELP_KEYS.put("/backup info <name>", "help.info");
+        COMMAND_HELP_KEYS.put("/backup delete <name>", "help.delete");
+        COMMAND_HELP_KEYS.put("/backup load <name>", "help.load");
         COMMAND_HELP_KEYS.put("/backup reload", "help.reload");
         COMMAND_HELP_KEYS.put("/backup help", "help.help");
     }
@@ -63,7 +64,7 @@ public class BackupCommand {
     public void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(
                 Commands.literal("backup")
-                        .requires(source -> source.permissions().hasPermission(Permissions.COMMANDS_MODERATOR))
+                        .requires(BackupCommand::hasBackupPermission)
                         .executes(this::executeAutomaticBackup)
                         .then(Commands.literal("create")
                                 .then(Commands.argument("nombre", StringArgumentType.word())
@@ -89,6 +90,29 @@ public class BackupCommand {
         );
     }
 
+    /**
+     * Determines whether whoever ran the command may use it: either they
+     * are an operator (moderator level or above), or their player name is
+     * in the "allowed-users" configuration list, even if they aren't a
+     * server operator.
+     */
+    private static boolean hasBackupPermission(CommandSourceStack source) {
+        if (source.permissions().hasPermission(Permissions.COMMANDS_MODERATOR)) {
+            return true;
+        }
+
+        ServerPlayer player = source.getPlayer();
+        if (player == null) {
+            // The server console isn't "a player"; if we got here it's
+            // because it also lacked moderator permission (very unlikely,
+            // but we deny it for safety).
+            return false;
+        }
+
+        String playerName = player.getGameProfile().name().toLowerCase();
+        return SimpleServerBackups.getConfig().getAllowedUsers().contains(playerName);
+    }
+
     private int executeAutomaticBackup(CommandContext<CommandSourceStack> context) {
         CommandSourceStack source = context.getSource();
         MinecraftServer server = source.getServer();
@@ -107,8 +131,8 @@ public class BackupCommand {
     }
 
     private int runBackup(CommandSourceStack source, MinecraftServer server, String backupName) {
-        sendMessage(source, Messages.get("msg.create.creating", backupName), ChatFormatting.YELLOW, true);
-        sendMessage(source, Messages.get("msg.create.saving"), ChatFormatting.GRAY, true);
+        broadcastMessage(source, Messages.get("msg.create.creating", backupName), ChatFormatting.YELLOW);
+        broadcastMessage(source, Messages.get("msg.create.saving"), ChatFormatting.GRAY);
 
         try {
             BackupResult result = backupManager.createBackup(server, backupName);
@@ -116,15 +140,15 @@ public class BackupCommand {
             String sizeText = formatSize(result.sizeInBytes());
             String timeText = String.format("%.1f s", result.durationMillis() / 1000.0);
 
-            sendMessage(source, Messages.get("msg.create.done", backupName), ChatFormatting.GREEN, true);
-            sendMessage(source, Messages.get("msg.create.stats", sizeText, timeText), ChatFormatting.AQUA, true);
+            broadcastMessage(source, Messages.get("msg.create.done", backupName), ChatFormatting.GREEN);
+            broadcastMessage(source, Messages.get("msg.create.stats", sizeText, timeText), ChatFormatting.AQUA);
 
             return 1;
         } catch (LocalizedException e) {
             source.sendFailure(Component.literal(Messages.get(e.getKey(), e.getArgs())));
             return 0;
         } catch (Exception e) {
-            SimpleServerBackups.LOGGER.error("Error al crear el backup '{}'", backupName, e);
+            SimpleServerBackups.LOGGER.error("Error creating backup '{}'", backupName, e);
             source.sendFailure(Component.literal(Messages.get("error.create.failed", e.getMessage())));
             return 0;
         }
@@ -157,7 +181,7 @@ public class BackupCommand {
 
             return 1;
         } catch (Exception e) {
-            SimpleServerBackups.LOGGER.error("Error al listar los backups", e);
+            SimpleServerBackups.LOGGER.error("Error listing backups", e);
             source.sendFailure(Component.literal(Messages.get("error.list.failed", e.getMessage())));
             return 0;
         }
@@ -185,7 +209,7 @@ public class BackupCommand {
             source.sendFailure(Component.literal(Messages.get(e.getKey(), e.getArgs())));
             return 0;
         } catch (Exception e) {
-            SimpleServerBackups.LOGGER.error("Error al obtener informacion del backup '{}'", backupName, e);
+            SimpleServerBackups.LOGGER.error("Error getting info for backup '{}'", backupName, e);
             source.sendFailure(Component.literal(Messages.get("error.info.failed", e.getMessage())));
             return 0;
         }
@@ -197,13 +221,13 @@ public class BackupCommand {
 
         try {
             backupManager.deleteBackup(backupName);
-            sendMessage(source, Messages.get("msg.delete.done", backupName), ChatFormatting.GREEN, true);
+            broadcastMessage(source, Messages.get("msg.delete.done", backupName), ChatFormatting.GREEN);
             return 1;
         } catch (LocalizedException e) {
             source.sendFailure(Component.literal(Messages.get(e.getKey(), e.getArgs())));
             return 0;
         } catch (Exception e) {
-            SimpleServerBackups.LOGGER.error("Error al eliminar el backup '{}'", backupName, e);
+            SimpleServerBackups.LOGGER.error("Error deleting backup '{}'", backupName, e);
             source.sendFailure(Component.literal(Messages.get("error.delete.failed", e.getMessage())));
             return 0;
         }
@@ -222,14 +246,14 @@ public class BackupCommand {
 
             restoreManager.requestRestore(backupName);
 
-            sendMessage(source, Messages.get("msg.load.scheduled", backupName), ChatFormatting.GOLD, true);
-            sendMessage(source, Messages.get("msg.load.stopping"), ChatFormatting.GOLD, true);
+            broadcastMessage(source, Messages.get("msg.load.scheduled", backupName), ChatFormatting.GOLD);
+            broadcastMessage(source, Messages.get("msg.load.stopping"), ChatFormatting.GOLD);
 
             server.getCommands().performPrefixedCommand(server.createCommandSourceStack(), "stop");
 
             return 1;
         } catch (Exception e) {
-            SimpleServerBackups.LOGGER.error("Error al programar la restauracion del backup '{}'", backupName, e);
+            SimpleServerBackups.LOGGER.error("Error scheduling restore for backup '{}'", backupName, e);
             source.sendFailure(Component.literal(Messages.get("error.load.failed", e.getMessage())));
             return 0;
         }
@@ -237,14 +261,23 @@ public class BackupCommand {
 
     private int executeReload(CommandContext<CommandSourceStack> context) {
         CommandSourceStack source = context.getSource();
+        MinecraftServer server = source.getServer();
 
         try {
             SimpleServerBackups.getConfig().load();
             Messages.load(SimpleServerBackups.getConfig().getLanguage());
-            sendMessage(source, Messages.get("msg.reload.done"), ChatFormatting.GREEN, true);
+
+            // Resend the command tree to every connected player, so their
+            // client immediately reflects any permission change (allowed-users),
+            // without needing to reconnect.
+            for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+                server.getCommands().sendCommands(player);
+            }
+
+            broadcastMessage(source, Messages.get("msg.reload.done"), ChatFormatting.GREEN);
             return 1;
         } catch (Exception e) {
-            SimpleServerBackups.LOGGER.error("Error al recargar la configuracion", e);
+            SimpleServerBackups.LOGGER.error("Error reloading configuration", e);
             source.sendFailure(Component.literal(Messages.get("error.reload.failed", e.getMessage())));
             return 0;
         }
@@ -267,8 +300,23 @@ public class BackupCommand {
         return 1;
     }
 
+    /**
+     * Sends a message only to whoever ran the command (used for personal
+     * queries like /backup list, /backup info and /backup help).
+     */
     private void sendMessage(CommandSourceStack source, String text, ChatFormatting color, boolean broadcastToOps) {
         source.sendSuccess(() -> Component.literal(text).withStyle(color), broadcastToOps);
+    }
+
+    /**
+     * Sends a message to EVERY connected player, regardless of who ran
+     * the command (a player, an operator, or the server console itself).
+     * Used for status updates that matter to the whole server, such as
+     * backup creation progress, deletion, and scheduled restores.
+     */
+    private void broadcastMessage(CommandSourceStack source, String text, ChatFormatting color) {
+        Component message = Component.literal(text).withStyle(color);
+        source.getServer().getPlayerList().broadcastSystemMessage(message, false);
     }
 
     private String formatSize(long bytes) {

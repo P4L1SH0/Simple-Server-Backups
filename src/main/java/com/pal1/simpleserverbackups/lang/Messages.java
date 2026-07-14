@@ -11,21 +11,21 @@ import java.text.MessageFormat;
 import java.util.Properties;
 
 /**
- * Carga los textos del mod en el idioma configurado y permite pedirlos
- * por clave, sustituyendo valores variables (marcadores {0}, {1}...).
+ * Loads the mod's chat messages in the configured language and provides
+ * them by key, substituting variable placeholders ({0}, {1}...).
  *
- * Los archivos de idioma viven dentro del propio mod, en
- * src/main/resources/lang/es.properties y lang/en.properties.
+ * The language files live inside the mod itself, at
+ * src/main/resources/lang/es.properties and lang/en.properties.
  */
 public class Messages {
 
-    private static final String DEFAULT_LANGUAGE = "es";
+    private static final String DEFAULT_LANGUAGE = "en";
 
     private static Properties messages;
 
     /**
-     * Carga (o recarga) el idioma indicado. Si no existe un archivo para
-     * ese idioma, usa espa\u00f1ol como respaldo y avisa en el log.
+     * Loads (or reloads) the given language. If no file exists for that
+     * language, falls back to English and logs a warning.
      */
     public static void load(String language) {
         String lang = (language == null || language.isBlank()) ? DEFAULT_LANGUAGE : language.toLowerCase();
@@ -34,7 +34,7 @@ public class Messages {
 
         if (loaded == null) {
             SimpleServerBackups.LOGGER.warn(
-                    "Idioma '{}' no soportado, usando '{}' por defecto.", lang, DEFAULT_LANGUAGE);
+                    "Language '{}' not supported, falling back to '{}'.", lang, DEFAULT_LANGUAGE);
             loaded = readLangFile(DEFAULT_LANGUAGE);
         }
 
@@ -54,15 +54,15 @@ public class Messages {
             }
             return properties;
         } catch (IOException e) {
-            SimpleServerBackups.LOGGER.error("Error al leer el archivo de idioma '{}'", resourcePath, e);
+            SimpleServerBackups.LOGGER.error("Error reading language file '{}'", resourcePath, e);
             return null;
         }
     }
 
     /**
-     * Devuelve el texto de una clave en el idioma cargado, sustituyendo
-     * {0}, {1}... por los valores indicados. Si la clave no existe,
-     * devuelve la propia clave (para detectar fallos facilmente).
+     * Returns the text for a key in the loaded language, substituting
+     * {0}, {1}... with the given values. If the key doesn't exist,
+     * returns the key itself (so missing translations are easy to spot).
      */
     public static String get(String key, Object... args) {
         if (messages == null) {

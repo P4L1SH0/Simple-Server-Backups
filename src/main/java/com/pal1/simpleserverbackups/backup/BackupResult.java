@@ -3,13 +3,13 @@ package com.pal1.simpleserverbackups.backup;
 import java.nio.file.Path;
 
 /**
- * Representa el resultado de un backup ya terminado: donde quedo el archivo,
- * cuanto pesa y cuanto tiempo tardo en crearse. Se usa para construir los
- * mensajes que se muestran al usuario ("Backup completado", tamaño, tiempo...).
+ * Represents the result of a finished backup: where the file ended up,
+ * how big it is, and how long it took to create. Used to build the
+ * messages shown to the user ("Backup completed", size, time...).
  *
- * Es un "record": una forma abreviada de Java moderno para declarar una clase
- * que solo almacena datos (sin logica), sin tener que escribir a mano el
- * constructor ni los metodos para leer cada campo.
+ * This is a "record": a shorthand way in modern Java to declare a class
+ * that only stores data (no logic), without having to write the
+ * constructor or the getters by hand.
  */
 public record BackupResult(Path zipFile, long sizeInBytes, long durationMillis) {
 }

@@ -1,10 +1,10 @@
 package com.pal1.simpleserverbackups.lang;
 
 /**
- * Excepcion que lleva una CLAVE de traduccion (y sus valores variables)
- * en vez de un texto ya fijo en un idioma concreto. Asi, quien la capture
- * (normalmente BackupCommand) puede traducirla al idioma configurado
- * antes de mostrarla al usuario.
+ * Exception that carries a translation KEY (and its variable values)
+ * instead of text already fixed in one language. This way, whoever
+ * catches it (usually BackupCommand) can translate it into the
+ * configured language before showing it to the user.
  */
 public class LocalizedException extends RuntimeException {
 
