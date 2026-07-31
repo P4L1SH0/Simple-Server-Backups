@@ -3,7 +3,7 @@
 	"id": "simple-server-backups",
 	"version": "${version}",
 	"name": "Simple Server Backups",
-	"description": "Gestiona copias de seguridad completas del mundo (todas las dimensiones) para servidores dedicados, mediante comandos y sin depender de otros mods.",
+	"description": "Complete and secure backups for your server, using in-game commands, with permissions and automatic backups.",
 	"authors": [
 		"pal1"
 	],

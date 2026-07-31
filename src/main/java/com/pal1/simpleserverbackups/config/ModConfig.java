@@ -24,7 +24,7 @@ public class ModConfig {
     private static final int DEFAULT_COMPRESSION_LEVEL = 6;
     private static final int DEFAULT_MAX_BACKUPS = 0; // 0 = no limit
     private static final String DEFAULT_LANGUAGE = "en";
-    private static final int DEFAULT_AUTO_BACKUP_INTERVAL_MINUTES = 0; // 0 = disabled
+    private static final String DEFAULT_AUTO_BACKUP_TIME = ""; // empty = disabled
     private static final String DEFAULT_ALLOWED_USERS = "";
 
     // Hand-written template used only the very first time the config file
@@ -53,13 +53,29 @@ public class ModConfig {
             # Available languages: en, es
             language=en
 
-            # Automatic backup interval in minutes.
-            # 0 = Disabled.
-            auto-backup-interval-minutes=0
+            # Time of day (24-hour clock, HH:mm) at which an automatic
+            # backup will be created every day. Leave empty to disable
+            # automatic backups.
+            # If the server is offline at that exact time, that day's
+            # backup will simply be skipped. If the server starts up
+            # AFTER this time and today's backup hasn't run yet, it
+            # will run shortly after startup instead of waiting for
+            # tomorrow.
+            # Example: auto-backup-time=04:00
+            auto-backup-time=
 
-            # Player names allowed to use /backup even if they are not
-            # server operators. Comma-separated, leave empty to disable.
-            # Example: allowed-users=Steve, Alex
+            # Players allowed to use /backup even if they are not server
+            # operators. Comma-separated, leave empty to disable.
+            #
+            # You can list either player names or player UUIDs.
+            # UUIDs are strongly recommended on premium (online-mode) servers:
+            # they are tied to the real account and cannot be impersonated,
+            # and keep working even if the player changes their username.
+            # On non-premium (offline-mode) servers, neither names nor UUIDs
+            # are truly secure, since the server cannot verify who is really
+            # connecting; use server operators (/op) for anything sensitive.
+            #
+            # Example: allowed-users=Steve, 11222710-16a9-42b8-8763-c7b0856c0653
             allowed-users=
             """;
 
@@ -67,7 +83,7 @@ public class ModConfig {
     private int compressionLevel;
     private int maxBackups;
     private String language;
-    private int autoBackupIntervalMinutes;
+    private String autoBackupTime;
     private Set<String> allowedUsers;
 
     public void load() {
@@ -88,8 +104,7 @@ public class ModConfig {
         this.compressionLevel = parseIntSafe(properties.getProperty("compression-level"), DEFAULT_COMPRESSION_LEVEL);
         this.maxBackups = parseIntSafe(properties.getProperty("max-backups"), DEFAULT_MAX_BACKUPS);
         this.language = properties.getProperty("language", DEFAULT_LANGUAGE);
-        this.autoBackupIntervalMinutes = parseIntSafe(
-                properties.getProperty("auto-backup-interval-minutes"), DEFAULT_AUTO_BACKUP_INTERVAL_MINUTES);
+        this.autoBackupTime = properties.getProperty("auto-backup-time", DEFAULT_AUTO_BACKUP_TIME).trim();
         this.allowedUsers = parseAllowedUsers(properties.getProperty("allowed-users", DEFAULT_ALLOWED_USERS));
     }
 
@@ -106,9 +121,11 @@ public class ModConfig {
     }
 
     /**
-     * Turns the text "name1, name2, name3" into a set of lowercase names
-     * (so comparisons are case-insensitive), with no extra whitespace
-     * and no empty entries.
+     * Turns the text "value1, value2, value3" into a set of lowercase
+     * values (so comparisons are case-insensitive), with no extra
+     * whitespace and no empty entries. Each value can be either a player
+     * name or a player UUID - both are just compared as plain lowercase
+     * text against the connecting player's name and UUID.
      */
     private Set<String> parseAllowedUsers(String rawValue) {
         if (rawValue == null || rawValue.isBlank()) {
@@ -116,8 +133,8 @@ public class ModConfig {
         }
 
         Set<String> result = new HashSet<>();
-        for (String name : rawValue.split(",")) {
-            String trimmed = name.trim();
+        for (String value : rawValue.split(",")) {
+            String trimmed = value.trim();
             if (!trimmed.isEmpty()) {
                 result.add(trimmed.toLowerCase());
             }
@@ -149,13 +166,17 @@ public class ModConfig {
         return language;
     }
 
-    public int getAutoBackupIntervalMinutes() {
-        return autoBackupIntervalMinutes;
+    /**
+     * Time of day (as text, e.g. "04:00") at which an automatic backup
+     * should run every day. Empty means automatic backups are disabled.
+     */
+    public String getAutoBackupTime() {
+        return autoBackupTime;
     }
 
     /**
-     * Player names (lowercase) allowed to use /backup even if they are
-     * not server operators. Empty by default.
+     * Player names and/or UUIDs (lowercase) allowed to use /backup even
+     * if they are not server operators. Empty by default.
      */
     public Set<String> getAllowedUsers() {
         return allowedUsers;

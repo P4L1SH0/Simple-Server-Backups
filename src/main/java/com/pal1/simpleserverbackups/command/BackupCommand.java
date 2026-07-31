@@ -20,18 +20,23 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.permissions.Permissions;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Registers the /backup command and its subcommands:
  * /backup, /backup create <name>, /backup list, /backup info <name>,
- * /backup delete <name>, /backup load <name>, /backup reload, /backup help.
+ * /backup delete <name>, /backup load <name>, /backup reload,
+ * /backup next, /backup help.
  */
 public class BackupCommand {
 
@@ -54,6 +59,7 @@ public class BackupCommand {
         COMMAND_HELP_KEYS.put("/backup delete <name>", "help.delete");
         COMMAND_HELP_KEYS.put("/backup load <name>", "help.load");
         COMMAND_HELP_KEYS.put("/backup reload", "help.reload");
+        COMMAND_HELP_KEYS.put("/backup next", "help.next");
         COMMAND_HELP_KEYS.put("/backup help", "help.help");
     }
 
@@ -85,6 +91,8 @@ public class BackupCommand {
                                         .executes(this::executeLoad)))
                         .then(Commands.literal("reload")
                                 .executes(this::executeReload))
+                        .then(Commands.literal("next")
+                                .executes(this::executeNext))
                         .then(Commands.literal("help")
                                 .executes(this::executeHelp))
         );
@@ -92,9 +100,9 @@ public class BackupCommand {
 
     /**
      * Determines whether whoever ran the command may use it: either they
-     * are an operator (moderator level or above), or their player name is
-     * in the "allowed-users" configuration list, even if they aren't a
-     * server operator.
+     * are an operator (moderator level or above), or their player name OR
+     * their player UUID is in the "allowed-users" configuration list,
+     * even if they aren't a server operator.
      */
     private static boolean hasBackupPermission(CommandSourceStack source) {
         if (source.permissions().hasPermission(Permissions.COMMANDS_MODERATOR)) {
@@ -109,8 +117,12 @@ public class BackupCommand {
             return false;
         }
 
+        Set<String> allowedUsers = SimpleServerBackups.getConfig().getAllowedUsers();
+
         String playerName = player.getGameProfile().name().toLowerCase();
-        return SimpleServerBackups.getConfig().getAllowedUsers().contains(playerName);
+        String playerUuid = player.getUUID().toString().toLowerCase();
+
+        return allowedUsers.contains(playerName) || allowedUsers.contains(playerUuid);
     }
 
     private int executeAutomaticBackup(CommandContext<CommandSourceStack> context) {
@@ -283,6 +295,41 @@ public class BackupCommand {
         }
     }
 
+    /**
+     * Shows how long is left until the next daily automatic backup,
+     * based on the "auto-backup-time" configuration option.
+     */
+    private int executeNext(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        String configuredTime = SimpleServerBackups.getConfig().getAutoBackupTime();
+
+        if (configuredTime == null || configuredTime.isBlank()) {
+            sendMessage(source, Messages.get("msg.next.disabled"), ChatFormatting.GRAY, false);
+            return 1;
+        }
+
+        try {
+            LocalTime targetTime = LocalTime.parse(configuredTime);
+            LocalDateTime now = LocalDateTime.now();
+
+            LocalDateTime nextRun = now.toLocalDate().atTime(targetTime);
+            if (!now.toLocalTime().isBefore(targetTime)) {
+                // Today's time has already passed (or is happening right now):
+                // the next run will be tomorrow.
+                nextRun = nextRun.plusDays(1);
+            }
+
+            String remainingText = formatDuration(Duration.between(now, nextRun));
+
+            sendMessage(source, Messages.get("msg.next.time", remainingText, targetTime.toString()), ChatFormatting.AQUA, false);
+            return 1;
+        } catch (DateTimeParseException e) {
+            // Invalid format stored in the config file - treat it as disabled.
+            sendMessage(source, Messages.get("msg.next.disabled"), ChatFormatting.GRAY, false);
+            return 1;
+        }
+    }
+
     private int executeHelp(CommandContext<CommandSourceStack> context) {
         CommandSourceStack source = context.getSource();
 
@@ -302,7 +349,7 @@ public class BackupCommand {
 
     /**
      * Sends a message only to whoever ran the command (used for personal
-     * queries like /backup list, /backup info and /backup help).
+     * queries like /backup list, /backup info, /backup next and /backup help).
      */
     private void sendMessage(CommandSourceStack source, String text, ChatFormatting color, boolean broadcastToOps) {
         source.sendSuccess(() -> Component.literal(text).withStyle(color), broadcastToOps);
@@ -326,5 +373,19 @@ public class BackupCommand {
         int exponent = (int) (Math.log(bytes) / Math.log(1024));
         String unit = "KMGTPE".charAt(exponent - 1) + "B";
         return String.format("%.2f %s", bytes / Math.pow(1024, exponent), unit);
+    }
+
+    /**
+     * Turns a Duration into a short readable text like "2h 15m" or "45m".
+     */
+    private String formatDuration(Duration duration) {
+        long totalMinutes = Math.max(0, duration.toMinutes());
+        long hours = totalMinutes / 60;
+        long minutes = totalMinutes % 60;
+
+        if (hours > 0) {
+            return hours + "h " + minutes + "m";
+        }
+        return minutes + "m";
     }
 }
