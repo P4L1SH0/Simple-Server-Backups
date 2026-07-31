@@ -11,13 +11,16 @@ Simple Server Backups is a lightweight and easy-to-use Minecraft server backup m
 * Delete old backups.
 * Schedule a backup restore (the server will stop and restore the selected backup on the next startup).
 * Reload the mod configuration without restarting the server.
+* Automatic daily backups at a fixed time you choose, plus a command to check how long is left until the next one.
+* Status messages (backup progress, completion, deletion, scheduled restores) are broadcast to every connected player, no matter who ran the command — even from the server console.
+* Available in English and Spanish, with more languages easy to add.
 * Fully configurable through a configuration file:
 
-  * Enable and configure automatic backups.
+  * Enable and configure the daily automatic backup time.
   * Set the maximum number of backups to keep.
   * Change the mod language.
-  * Customize additional backup settings.
-  * Permissions by user.
+  * Customize the backups folder and compression level.
+  * Grant specific players access to backup commands without making them full server operators, by player name or UUID.
 
 ## Commands
 
@@ -28,6 +31,7 @@ Simple Server Backups is a lightweight and easy-to-use Minecraft server backup m
 * `/backup delete <name>` – Deletes an existing backup.
 * `/backup load <name>` – Schedules a backup restoration and shuts down the server to apply it on the next startup.
 * `/backup reload` – Reloads the mod configuration.
+* `/backup next` – Shows how much time is left until the next automatic backup.
 * `/backup help` – Displays the list of available commands.
 
 ## Requirements
