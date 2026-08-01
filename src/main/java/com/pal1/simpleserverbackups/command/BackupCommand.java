@@ -7,7 +7,6 @@ import com.mojang.brigadier.context.CommandContext;
 import com.pal1.simpleserverbackups.SimpleServerBackups;
 import com.pal1.simpleserverbackups.backup.BackupInfo;
 import com.pal1.simpleserverbackups.backup.BackupManager;
-import com.pal1.simpleserverbackups.backup.BackupResult;
 import com.pal1.simpleserverbackups.lang.LocalizedException;
 import com.pal1.simpleserverbackups.lang.Messages;
 import com.pal1.simpleserverbackups.restore.RestoreManager;
@@ -142,26 +141,38 @@ public class BackupCommand {
         return runBackup(source, server, backupName);
     }
 
+    /**
+     * Starts creating a backup in the background (see
+     * BackupManager.createBackupAsync) and reports progress/result via chat,
+     * without blocking the main server thread while the ZIP is being written.
+     */
     private int runBackup(CommandSourceStack source, MinecraftServer server, String backupName) {
         broadcastMessage(source, Messages.get("msg.create.creating", backupName), ChatFormatting.YELLOW);
         broadcastMessage(source, Messages.get("msg.create.saving"), ChatFormatting.GRAY);
 
         try {
-            BackupResult result = backupManager.createBackup(server, backupName);
+            backupManager.createBackupAsync(server, backupName,
+                    result -> {
+                        String sizeText = formatSize(result.sizeInBytes());
+                        String timeText = String.format("%.1f s", result.durationMillis() / 1000.0);
 
-            String sizeText = formatSize(result.sizeInBytes());
-            String timeText = String.format("%.1f s", result.durationMillis() / 1000.0);
-
-            broadcastMessage(source, Messages.get("msg.create.done", backupName), ChatFormatting.GREEN);
-            broadcastMessage(source, Messages.get("msg.create.stats", sizeText, timeText), ChatFormatting.AQUA);
+                        broadcastMessage(source, Messages.get("msg.create.done", backupName), ChatFormatting.GREEN);
+                        broadcastMessage(source, Messages.get("msg.create.stats", sizeText, timeText), ChatFormatting.AQUA);
+                    },
+                    error -> {
+                        if (error instanceof LocalizedException localizedError) {
+                            source.sendFailure(Component.literal(Messages.get(localizedError.getKey(), localizedError.getArgs())));
+                        } else {
+                            SimpleServerBackups.LOGGER.error("Error creating backup '{}'", backupName, error);
+                            source.sendFailure(Component.literal(Messages.get("error.create.failed", error.getMessage())));
+                        }
+                    });
 
             return 1;
         } catch (LocalizedException e) {
+            // This only catches validation errors (invalid name), which
+            // happen immediately, before any background work starts.
             source.sendFailure(Component.literal(Messages.get(e.getKey(), e.getArgs())));
-            return 0;
-        } catch (Exception e) {
-            SimpleServerBackups.LOGGER.error("Error creating backup '{}'", backupName, e);
-            source.sendFailure(Component.literal(Messages.get("error.create.failed", e.getMessage())));
             return 0;
         }
     }

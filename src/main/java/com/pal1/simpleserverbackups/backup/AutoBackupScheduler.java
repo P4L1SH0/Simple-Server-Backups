@@ -76,20 +76,23 @@ public class AutoBackupScheduler {
         }
     }
 
+    /**
+     * Starts creating the automatic backup in the background (see
+     * BackupManager.createBackupAsync), so the server never freezes
+     * (and no player gets timed out) while the ZIP is being written.
+     */
     private void runAutomaticBackup(MinecraftServer server) {
         String backupName = LocalDateTime.now().format(AUTO_NAME_FORMAT);
 
         broadcast(server, Messages.get("msg.auto.creating", backupName), ChatFormatting.YELLOW);
 
-        try {
-            BackupResult result = backupManager.createBackup(server, backupName);
-            String sizeText = formatSize(result.sizeInBytes());
-            String timeText = String.format("%.1f s", result.durationMillis() / 1000.0);
-
-            broadcast(server, Messages.get("msg.auto.done", backupName, sizeText, timeText), ChatFormatting.GREEN);
-        } catch (Exception e) {
-            SimpleServerBackups.LOGGER.error("Error creating automatic backup '{}'", backupName, e);
-        }
+        backupManager.createBackupAsync(server, backupName,
+                result -> {
+                    String sizeText = formatSize(result.sizeInBytes());
+                    String timeText = String.format("%.1f s", result.durationMillis() / 1000.0);
+                    broadcast(server, Messages.get("msg.auto.done", backupName, sizeText, timeText), ChatFormatting.GREEN);
+                },
+                error -> SimpleServerBackups.LOGGER.error("Error creating automatic backup '{}'", backupName, error));
     }
 
     /**

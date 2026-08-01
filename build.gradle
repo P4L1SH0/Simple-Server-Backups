@@ -47,12 +47,24 @@ java {
 }
 
 jar {
+	// Include the target Minecraft version in the final jar's filename
+	// (e.g. simple-server-backups-1.2.1-mc26.1.2.jar), so it's easy to
+	// tell at a glance which build goes with which Minecraft version.
+	// This only affects the file name - fabric.mod.json still shows the
+	// plain mod_version, since that uses project.version, untouched above.
+	archiveVersion = "${project.mod_version}-${project.minecraft_version}"
+
 	def projectName = project.name
 	inputs.property "projectName", projectName
 
 	from("LICENSE") {
 		rename { "${it}_$projectName"}
 	}
+}
+
+sourcesJar {
+	// Same renaming for the sources jar, so both files stay consistent.
+	archiveVersion = "${project.mod_version}-${project.minecraft_version}"
 }
 
 // configure the maven publication
